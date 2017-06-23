@@ -158,7 +158,9 @@ void StartWorker(){
 	if(!IsWorker())
 		return;
 	Worker<float> worker(0);
-	sleep(1);
+	while(true){
+        if(NumServers()) break;
+    }
 	
 	vector<vector<float>> x;
 	vector<int> y;
