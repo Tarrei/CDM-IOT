@@ -31,6 +31,7 @@ public:
         }
         else //收到的是pull请求
         {
+            cout<<"##"<<endl;
         	record[ts]++;
         	res.keys = req_data.keys;
             res.vals.resize(n);
