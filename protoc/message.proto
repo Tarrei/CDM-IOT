@@ -1,0 +1,31 @@
+syntax = "proto2";
+package ps;
+ 
+message Meta {
+
+  //do not use the enum
+  required int32 cmd = 1;
+  required int32 sender = 2;
+  required int32 receiver = 3;
+  required int32 timestamp = 4;
+  required bool request = 5;
+  required bool push = 6;
+
+  message Node_ {
+
+    //do not use the enum
+    required int32 role = 1;
+    required int32 id = 2;
+    required string hostname = 3;
+    required int32 port = 4;
+    optional bool is_recovery = 5;
+  }
+  
+  repeated Node_ node = 7;
+
+  //do not use the enum
+  repeated int32 data_type = 8;
+
+  optional int32 customer_id = 9;
+
+}

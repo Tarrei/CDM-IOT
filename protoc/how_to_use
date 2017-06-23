@@ -1,0 +1,3 @@
+protoc --proto_path=./ --cpp_out=./ message.proto
+
+//输出为c++格式的protobuf序列化与反序列化类

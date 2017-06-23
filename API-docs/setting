@@ -1,0 +1,12 @@
+Node id:
+	1:Scheduler
+	2:Server Group
+	4:Worker Group
+	even:servers
+	odd:workers
+	
+
+Node role:
+	0:Scheduler
+	1:Server
+	2:Worker
