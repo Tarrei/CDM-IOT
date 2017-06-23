@@ -1,4 +1,4 @@
-# param_server
+# CDM-IOT
 
 # how to use
 ## 1. Download and install zeromq
