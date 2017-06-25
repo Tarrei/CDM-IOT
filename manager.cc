@@ -95,6 +95,7 @@ namespace ps{
 		std::lock_guard<std::mutex> lk(mu_);
 		int size=key_range_.size();
 		if(size!=num_servers_){
+			key_range_.clear();
 			for(int i=0;i<num_servers_;i++){
 				key_range_.push_back(Range(
 					keys_size_/num_servers_*i,

@@ -12,44 +12,45 @@ using namespace ps;
 template<typename Val>
 class ServerHandle{
 public:
-	void operator()(KVMeta& req_meta,
-			const KVPairs<Val>& req_data,
-			Server<Val>* server){
+    void operator()(KVMeta& req_meta,
+            const KVPairs<Val>& req_data,
+            Server<Val>* server){
 
         float alpha=0.01;
-		size_t n = req_data.keys.size();
+        size_t n = req_data.keys.size();
         KVPairs<Val> res;
         int ts=req_meta.timestamp;
         int num=Manager::Get()->NumWorkers();
-        if (req_meta.push){ 
-        	record[ts]++;
+        cout<<req_meta.push<<"   "<<req_meta.timestamp<<": "<<num<<endl;
+        if (req_meta.push){
+        //这里还有一点问题，就是更新gradient如何考虑各个worker的情况 
+            record[ts]++;
             for (size_t i = 0;i < n; ++i) {
-            	Key key = req_data.keys[i];
+                Key key = req_data.keys[i];
                 w[key] += alpha*req_data.vals[i]/num; 
             }
             server->Response(req_meta, res);
         }
         else //收到的是pull请求
         {
-            cout<<"##"<<endl;
-        	record[ts]++;
-        	res.keys = req_data.keys;
+            record[ts]++;
+            res.keys = req_data.keys;
             res.vals.resize(n);
-        	if(record[ts]==num){
-        		for (size_t i = 0;i < n; ++i){
-        			Key key = req_data.keys[i];
-        			res.vals[i] = w[key];
-        		}
-        		for (int id_:Manager::Get()->GetNodeIDs(WorkerGroupID)){
-        			req_meta.sender=id_;
-        			server->Response(req_meta, res);
-        		}
-        	}
+            if(record[ts]==num){
+                for (size_t i = 0;i < n; ++i){
+                    Key key = req_data.keys[i];
+                    res.vals[i] = w[key];
+                }
+                for (int id_:Manager::Get()->GetNodeIDs(WorkerGroupID)){
+                    req_meta.sender=id_;
+                    server->Response(req_meta, res);
+                }
+            }
         }     
-	}
+    }
 private:
-	std::unordered_map<Key, Val> w;
-	std::unordered_map<int,int> record;
+    std::unordered_map<Key, Val> w;
+    std::unordered_map<int,int> record;
 };
 
 void StartServer(){
@@ -66,8 +67,47 @@ void StartServer(){
  */
 float Sigmod(float x) {return 1.0/(1+exp(-x));}
 
+// void Gradient(Worker<float>& worker, vector<vector<float>>& x,
+//  vector<int>& y,vector<float>& w){
+
+//     int num=x.size();
+//     if(num==0) return;
+//     int size=x[0].size();
+    
+//     /*Init keys*/
+//     vector<Key> keys(size);
+//     for(int i=0;i<size;i++)
+//         keys[i]=i;
+
+//     for(int k=0;k<150;k++){
+//      cout<<k<<endl;
+//         //这里加得到rec_kvs_得到W
+//         vector<float> g(size);
+//         //float lamda=0.1;
+//         for(int i=0;i<num;i++){
+//             if(k*num+i>=5)
+//             worker.Wait((k*num+i-5)*2+1);
+//             float alpha = 4/(1.0+k+i)+0.0001;
+//             float h=0;
+//             vector<float> row=x[i];
+//             int size=row.size();
+//             for(int j=0;j<size;j++){
+//                 h+=(w[j]*row[j]);
+//             }
+//             for(int j=0;j<size;j++){
+//                 g[j]+=(y[i]-Sigmod(h))*row[j];
+//             }
+//             worker.Push(keys,g);
+//             worker.Pull(keys,&w);
+//             for(int j=0;j<size;j++){
+//                 w[j]+=alpha*g[j];
+//             }
+//         }       
+//     }    
+// }
+
 void Gradient(Worker<float>& worker, vector<vector<float>>& x,
-	vector<int>& y,vector<float>& w){
+    vector<int>& y,vector<float>& w){
 
     int num=x.size();
     if(num==0) return;
@@ -77,16 +117,15 @@ void Gradient(Worker<float>& worker, vector<vector<float>>& x,
     vector<Key> keys(size);
     for(int i=0;i<size;i++)
         keys[i]=i;
-
+    float alpha =0.01;
     for(int k=0;k<150;k++){
-    	cout<<k<<endl;
+        cout<<"round "<<k<<endl;
+        if(k>=5)
+            worker.Wait((k-5)*2+1);
         //这里加得到rec_kvs_得到W
         vector<float> g(size);
         //float lamda=0.1;
         for(int i=0;i<num;i++){
-            if(k*num+i>=5)
-            worker.Wait((k*num+i-5)*2+1);
-            float alpha = 4/(1.0+k+i)+0.0001;
             float h=0;
             vector<float> row=x[i];
             int size=row.size();
@@ -96,13 +135,13 @@ void Gradient(Worker<float>& worker, vector<vector<float>>& x,
             for(int j=0;j<size;j++){
                 g[j]+=(y[i]-Sigmod(h))*row[j];
             }
-            worker.Push(keys,g);
-            worker.Pull(keys,&w);
-            for(int j=0;j<size;j++){
-                w[j]+=alpha*g[j];
-            }
-        }       
-    }	
+        }    
+        worker.Push(keys,g);
+        worker.Pull(keys,&w);
+        for(int j=0;j<size;j++){
+            w[j]+=alpha*g[j];
+        }   
+    }   
 }
 
 float Predict(vector<vector<float>>& x, vector<int>& y, vector<float>& w){
@@ -155,16 +194,16 @@ void LoadData(vector<vector<float>>& x, vector<int>& y,
 }
 
 void StartWorker(){
-	if(!IsWorker())
-		return;
-	Worker<float> worker(0);
-	while(true){
+    if(!IsWorker())
+        return;
+    Worker<float> worker(0);
+    while(true){
         if(NumServers()) break;
     }
-	
-	vector<vector<float>> x;
-	vector<int> y;
-	LoadData(x,y,"../data/train_x","../data/train_y");
+    
+    vector<vector<float>> x;
+    vector<int> y;
+    LoadData(x,y,"../data/data/split/train_x_1","../data/data/split/train_y_1");
 
     int size=x[0].size();
     vector<float> w(size);
@@ -172,15 +211,15 @@ void StartWorker(){
 
     float precision=Predict(x,y,w);
     cout<<"precision: "<<precision<<endl;
-	
-	while(true){}
+    
+    while(true){}
 }
 
 int main(){
-	/*Start the parameter server*/
-	Start();
-	StartServer();
-	StartWorker();
-	Stop();
-	return 0;
+    /*Start the parameter server*/
+    Start();
+    StartServer();
+    StartWorker();
+    Stop();
+    return 0;
 }

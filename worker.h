@@ -135,7 +135,6 @@ namespace ps{
 	  			kvs.lens=msg.data[3];
 	  		}
 	  		mu_.lock();
-	  		//cout<<"pull data: "<<kvs.vals.size()<<endl;
 	  		recv_kvs_[ts].push_back(kvs);
 	  		mu_.unlock();
 	  	}
